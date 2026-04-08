@@ -10,7 +10,7 @@ dependencies:
   flutter:
     sdk: flutter
   cupertino_icons: ^1.0.8
-  supabase_flutter: ^2.3.0
+  supabase_flutter: ^2.0.0
   google_sign_in: ^6.2.1
   image_picker: ^1.0.0
 

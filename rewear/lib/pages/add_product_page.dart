@@ -14,68 +14,37 @@ class _AddProductPageState extends State<AddProductPage> {
   final _nameCtrl  = TextEditingController();
   final _descCtrl  = TextEditingController();
   final _priceCtrl = TextEditingController();
+  final _sizeCtrl  = TextEditingController(); // for free-text size (accessory)
 
   String? _selectedSize;
   String? _selectedCategory;
   bool _loading = false;
   File? _pickedImage;
 
+  // Clothing sizes shown as chips
+  final List<String> _clothingSizes = ['XS', 'S', 'M', 'L', 'XL', 'XXL', 'Free Size'];
+  // Shoe sizes
+  final List<String> _shoeSizes = ['36', '37', '38', '39', '40', '41', '42', '43', '44', '45'];
+  // Hat sizes
+  final List<String> _hatSizes = ['S/M', 'L/XL', 'Free Size'];
+
   final List<Map<String, dynamic>> _categories = [
-    {
-      'key': 'shirt',
-      'label': 'Shirt',
-      'icon': Icons.checkroom_outlined,
-      'sizes': ['XS', 'S', 'M', 'L', 'XL', 'XXL', 'Free Size'],
-      'sizeLabel': 'Size',
-    },
-    {
-      'key': 'pants',
-      'label': 'Pants',
-      'icon': Icons.straighten_outlined,
-      'sizes': ['28', '30', '32', '34', '36', '38'],
-      'sizeLabel': 'Waist (inches)',
-    },
-    {
-      'key': 'hat',
-      'label': 'Hat',
-      'icon': Icons.face_outlined,
-      'sizes': ['Free Size', 'S/M', 'M/L'],
-      'sizeLabel': 'Size',
-    },
-    {
-      'key': 'shoes',
-      'label': 'Shoes',
-      'icon': Icons.hiking_outlined,
-      'sizes': ['36', '37', '38', '39', '40', '41', '42', '43', '44', '45'],
-      'sizeLabel': 'EU Size',
-    },
-    {
-      'key': 'accessory',
-      'label': 'Accessory',
-      'icon': Icons.watch_outlined,
-      'sizes': ['Free Size'],
-      'sizeLabel': 'Size',
-    },
+    {'key': 'shirt',     'label': 'Shirt',      'icon': Icons.checkroom_outlined},
+    {'key': 'pants',     'label': 'Pants',      'icon': Icons.straighten_outlined},
+    {'key': 'hat',       'label': 'Hat',        'icon': Icons.face_outlined},
+    {'key': 'shoes',     'label': 'Shoes',      'icon': Icons.directions_walk_outlined},
+    {'key': 'accessory', 'label': 'Accessory',  'icon': Icons.watch_outlined},
   ];
 
-  /// คืน sizes list ของ category ที่เลือก
-  List<String> get _currentSizes {
-    if (_selectedCategory == null) return [];
-    final cat = _categories.firstWhere(
-      (c) => c['key'] == _selectedCategory,
-      orElse: () => _categories.first,
-    );
-    return List<String>.from(cat['sizes'] as List);
-  }
+  bool get _isAccessory => _selectedCategory == 'accessory';
+  bool get _isShoes    => _selectedCategory == 'shoes';
+  bool get _isHat      => _selectedCategory == 'hat';
+  bool get _isClothing => _selectedCategory == 'shirt' || _selectedCategory == 'pants';
 
-  /// คืน label ของ size field
-  String get _sizeLabelText {
-    if (_selectedCategory == null) return 'Size';
-    final cat = _categories.firstWhere(
-      (c) => c['key'] == _selectedCategory,
-      orElse: () => _categories.first,
-    );
-    return cat['sizeLabel'] as String;
+  List<String> get _availableSizes {
+    if (_isShoes) return _shoeSizes;
+    if (_isHat)   return _hatSizes;
+    return _clothingSizes;
   }
 
   @override
@@ -83,14 +52,15 @@ class _AddProductPageState extends State<AddProductPage> {
     _nameCtrl.dispose();
     _descCtrl.dispose();
     _priceCtrl.dispose();
+    _sizeCtrl.dispose();
     super.dispose();
   }
 
-  /// เมื่อเปลี่ยน category ให้ reset size ที่เลือก
-  void _onCategoryChanged(String key) {
+  void _onCategoryChanged(String? cat) {
     setState(() {
-      _selectedCategory = key;
-      _selectedSize = null; // reset เสมอเมื่อ category เปลี่ยน
+      _selectedCategory = cat;
+      _selectedSize = null;
+      _sizeCtrl.clear();
     });
   }
 
@@ -100,38 +70,8 @@ class _AddProductPageState extends State<AddProductPage> {
       context: context,
       backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (_) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const SizedBox(height: 8),
-            Container(
-              width: 36,
-              height: 4,
-              decoration: BoxDecoration(
-                color: Colors.grey.shade300,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            const SizedBox(height: 20),
-            ListTile(
-              leading: const Icon(Icons.camera_alt_outlined),
-              title: const Text('Take a photo',
-                  style: TextStyle(fontWeight: FontWeight.w500)),
-              onTap: () => Navigator.pop(context, ImageSource.camera),
-            ),
-            ListTile(
-              leading: const Icon(Icons.photo_library_outlined),
-              title: const Text('Choose from gallery',
-                  style: TextStyle(fontWeight: FontWeight.w500)),
-              onTap: () => Navigator.pop(context, ImageSource.gallery),
-            ),
-            const SizedBox(height: 12),
-          ],
-        ),
-      ),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (_) => _imageSourceSheet(),
     );
     if (source == null) return;
     final xfile = await picker.pickImage(source: source, imageQuality: 80);
@@ -139,48 +79,74 @@ class _AddProductPageState extends State<AddProductPage> {
     setState(() => _pickedImage = File(xfile.path));
   }
 
+  Widget _imageSourceSheet() {
+    return SafeArea(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const SizedBox(height: 8),
+          Container(width: 36, height: 4,
+              decoration: BoxDecoration(color: const Color(0xFFDDDDDD),
+                  borderRadius: BorderRadius.circular(2))),
+          const SizedBox(height: 20),
+          ListTile(
+            leading: Container(width: 38, height: 38,
+                decoration: BoxDecoration(color: const Color(0xFFF5F5F5),
+                    borderRadius: BorderRadius.circular(10)),
+                child: const Icon(Icons.camera_alt_outlined, size: 18)),
+            title: const Text('Take a photo',
+                style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+            onTap: () => Navigator.pop(context, ImageSource.camera),
+          ),
+          ListTile(
+            leading: Container(width: 38, height: 38,
+                decoration: BoxDecoration(color: const Color(0xFFF5F5F5),
+                    borderRadius: BorderRadius.circular(10)),
+                child: const Icon(Icons.photo_library_outlined, size: 18)),
+            title: const Text('Choose from gallery',
+                style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+            onTap: () => Navigator.pop(context, ImageSource.gallery),
+          ),
+          const SizedBox(height: 16),
+        ],
+      ),
+    );
+  }
+
   Future<String?> _uploadImage(File file) async {
     final userId = SupabaseService.currentUserId;
     if (userId == null) return null;
-    final fileName =
-        'products/$userId/${DateTime.now().millisecondsSinceEpoch}.jpg';
-    await supabase.storage
-        .from('images')
-        .upload(fileName, file, fileOptions: const FileOptions(upsert: true));
+    final fileName = 'products/$userId/${DateTime.now().millisecondsSinceEpoch}.jpg';
+    await supabase.storage.from('images').upload(
+        fileName, file, fileOptions: const FileOptions(upsert: true));
     return supabase.storage.from('images').getPublicUrl(fileName);
   }
 
   Future<void> _publish() async {
-    if (_nameCtrl.text.trim().isEmpty) {
-      _showError('Please enter a product name');
-      return;
-    }
-    if (_selectedCategory == null) {
-      _showError('Please select a category');
-      return;
-    }
-    if (_selectedSize == null) {
-      _showError('Please select a size');
-      return;
-    }
+    if (_nameCtrl.text.trim().isEmpty) { _err('Please enter a product name'); return; }
+    if (_selectedCategory == null)     { _err('Please select a category'); return; }
+
+    // Validate size based on category
+    final sizeValue = _isAccessory
+        ? _sizeCtrl.text.trim()
+        : _selectedSize;
+    if (!_isAccessory && sizeValue == null) { _err('Please select a size'); return; }
+
     if (_priceCtrl.text.trim().isEmpty ||
         int.tryParse(_priceCtrl.text.trim()) == null) {
-      _showError('Please enter a valid price');
-      return;
+      _err('Please enter a valid price'); return;
     }
 
     setState(() => _loading = true);
     try {
       String? imageUrl;
-      if (_pickedImage != null) {
-        imageUrl = await _uploadImage(_pickedImage!);
-      }
+      if (_pickedImage != null) imageUrl = await _uploadImage(_pickedImage!);
 
       await SupabaseService.addProduct({
         'name': _nameCtrl.text.trim(),
         'description': _descCtrl.text.trim(),
         'price': int.parse(_priceCtrl.text.trim()),
-        'size': _selectedSize,
+        'size': sizeValue?.isEmpty == true ? 'One Size' : (sizeValue ?? 'One Size'),
         'category': _selectedCategory,
         'condition': '90% New',
         'status': 'Active',
@@ -189,88 +155,69 @@ class _AddProductPageState extends State<AddProductPage> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Product published'),
-            backgroundColor: Colors.black,
-          ),
+          const SnackBar(content: Text('Product published ✓'), backgroundColor: Colors.black),
         );
         Navigator.pop(context, true);
       }
     } catch (e) {
-      if (mounted) _showError('Failed: $e');
+      if (mounted) _err('Failed: $e');
     } finally {
       if (mounted) setState(() => _loading = false);
     }
   }
 
-  void _showError(String msg) {
+  void _err(String msg) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(msg), backgroundColor: Colors.red.shade700),
     );
   }
 
-  InputDecoration _dec(String label, String hint) => InputDecoration(
-        labelText: label,
-        labelStyle: const TextStyle(color: Colors.grey, fontSize: 14),
-        hintText: hint,
-        hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 13),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-          borderSide: BorderSide(color: Colors.grey.shade200),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-          borderSide: BorderSide(color: Colors.grey.shade200),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: Colors.black, width: 1.5),
-        ),
-        filled: true,
-        fillColor: Colors.grey.shade50,
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-        counterText: '',
-      );
+  InputDecoration _dec(String label, String hint, {int? maxLen}) => InputDecoration(
+    labelText: label,
+    labelStyle: const TextStyle(color: Color(0xFF9A9A9A), fontSize: 13),
+    hintText: hint,
+    hintStyle: const TextStyle(color: Color(0xFFCCCCCC), fontSize: 13),
+    filled: true,
+    fillColor: const Color(0xFFF5F5F5),
+    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
+    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
+    focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10),
+        borderSide: const BorderSide(color: Colors.black, width: 1.2)),
+    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+    counterText: '',
+  );
 
   @override
   Widget build(BuildContext context) {
-    final sizes = _currentSizes;
-
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.close, size: 22),
+          icon: const Icon(Icons.close_rounded, size: 22),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text(
-          'New Listing',
-          style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
-        ),
+        title: const Text('New Listing',
+            style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16, letterSpacing: -0.4)),
         centerTitle: true,
         actions: [
           Padding(
             padding: const EdgeInsets.only(right: 16),
-            child: TextButton(
-              onPressed: _loading ? null : _publish,
-              child: _loading
-                  ? const SizedBox(
-                      height: 16,
-                      width: 16,
-                      child: CircularProgressIndicator(
-                          color: Colors.black, strokeWidth: 2),
-                    )
-                  : const Text(
-                      'Publish',
-                      style: TextStyle(
-                        color: Colors.black,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 14,
-                      ),
-                    ),
+            child: GestureDetector(
+              onTap: _loading ? null : _publish,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                decoration: BoxDecoration(
+                  color: Colors.black,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: _loading
+                    ? const SizedBox(height: 16, width: 16,
+                        child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                    : const Text('Publish',
+                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 13)),
+              ),
             ),
           ),
         ],
@@ -280,108 +227,81 @@ class _AddProductPageState extends State<AddProductPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ── Photo ─────────────────────────────────────
+            // ── Photo ──────────────────────────────────────
             GestureDetector(
               onTap: _pickImage,
               child: Container(
-                height: 180,
+                height: 200,
                 width: double.infinity,
                 decoration: BoxDecoration(
-                  color: Colors.grey.shade100,
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: Colors.grey.shade200),
+                  color: const Color(0xFFF5F5F5),
+                  borderRadius: BorderRadius.circular(12),
                 ),
                 clipBehavior: Clip.hardEdge,
                 child: _pickedImage != null
-                    ? Stack(
-                        fit: StackFit.expand,
-                        children: [
-                          Image.file(_pickedImage!, fit: BoxFit.cover),
-                          Positioned(
-                            bottom: 10,
-                            right: 10,
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 10, vertical: 6),
-                              decoration: BoxDecoration(
-                                color: Colors.black.withOpacity(0.6),
-                                borderRadius: BorderRadius.circular(6),
-                              ),
-                              child: const Text(
-                                'Change photo',
-                                style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w500),
-                              ),
+                    ? Stack(fit: StackFit.expand, children: [
+                        Image.file(_pickedImage!, fit: BoxFit.cover),
+                        Positioned(
+                          bottom: 12, right: 12,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withOpacity(0.7),
+                              borderRadius: BorderRadius.circular(8),
                             ),
+                            child: const Text('Change photo',
+                                style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600)),
                           ),
-                        ],
-                      )
-                    : Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.add_photo_alternate_outlined,
-                              size: 36, color: Colors.grey.shade400),
-                          const SizedBox(height: 8),
-                          Text(
-                            'Add photo',
-                            style: TextStyle(
-                                fontSize: 13, color: Colors.grey.shade500),
+                        ),
+                      ])
+                    : Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                        Container(width: 48, height: 48,
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(12),
+                            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.06),
+                                blurRadius: 8, offset: const Offset(0, 2))],
                           ),
-                          const SizedBox(height: 4),
-                          Text(
-                            'Tap to upload',
-                            style: TextStyle(
-                                fontSize: 11, color: Colors.grey.shade400),
-                          ),
-                        ],
-                      ),
+                          child: const Icon(Icons.add_photo_alternate_outlined, size: 22, color: Colors.black)),
+                        const SizedBox(height: 10),
+                        const Text('Add Photo', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+                        const SizedBox(height: 4),
+                        const Text('Tap to upload from camera or gallery',
+                            style: TextStyle(fontSize: 11, color: Color(0xFF9A9A9A))),
+                      ]),
               ),
             ),
 
-            const SizedBox(height: 24),
+            const SizedBox(height: 28),
 
             // ── Category ───────────────────────────────────
-            const Text('Category',
-                style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-            const SizedBox(height: 10),
+            const Text('Category', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+            const SizedBox(height: 12),
             Wrap(
               spacing: 8,
               runSpacing: 8,
               children: _categories.map((cat) {
                 final isSelected = _selectedCategory == cat['key'];
                 return GestureDetector(
-                  onTap: () => _onCategoryChanged(cat['key'] as String),
+                  onTap: () => _onCategoryChanged(cat['key']),
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 150),
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 14, vertical: 8),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                     decoration: BoxDecoration(
-                      color: isSelected ? Colors.black : Colors.grey.shade100,
-                      borderRadius: BorderRadius.circular(6),
+                      color: isSelected ? Colors.black : const Color(0xFFF5F5F5),
+                      borderRadius: BorderRadius.circular(8),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(
-                          cat['icon'] as IconData,
-                          size: 14,
-                          color: isSelected
-                              ? Colors.white
-                              : Colors.grey.shade600,
-                        ),
+                        Icon(cat['icon'] as IconData, size: 14,
+                            color: isSelected ? Colors.white : const Color(0xFF666666)),
                         const SizedBox(width: 6),
-                        Text(
-                          cat['label'] as String,
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w500,
-                            color: isSelected
-                                ? Colors.white
-                                : Colors.grey.shade700,
-                          ),
-                        ),
+                        Text(cat['label'],
+                            style: TextStyle(
+                              fontSize: 13, fontWeight: FontWeight.w600,
+                              color: isSelected ? Colors.white : const Color(0xFF555555),
+                            )),
                       ],
                     ),
                   ),
@@ -389,128 +309,106 @@ class _AddProductPageState extends State<AddProductPage> {
               }).toList(),
             ),
 
-            const SizedBox(height: 24),
+            const SizedBox(height: 28),
 
             // ── Name ──────────────────────────────────────
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text('Product Name',
-                    style:
-                        TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-                Text('${_nameCtrl.text.length}/120',
-                    style: TextStyle(
-                        fontSize: 11, color: Colors.grey.shade400)),
-              ],
-            ),
+            Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+              const Text('Product Name', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+              Text('${_nameCtrl.text.length}/120',
+                  style: const TextStyle(fontSize: 11, color: Color(0xFF9A9A9A))),
+            ]),
             const SizedBox(height: 8),
             TextField(
               controller: _nameCtrl,
               maxLength: 120,
               onChanged: (_) => setState(() {}),
-              decoration:
-                  _dec('Product Name', 'e.g. Navy Blue Polo Shirt'),
+              decoration: _dec('Product Name', 'e.g. Navy Blue Polo Shirt'),
             ),
 
             const SizedBox(height: 20),
 
             // ── Description ───────────────────────────────
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text('Description',
-                    style:
-                        TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-                Text('${_descCtrl.text.length}/400',
-                    style: TextStyle(
-                        fontSize: 11, color: Colors.grey.shade400)),
-              ],
-            ),
+            Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+              const Text('Description', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+              Text('${_descCtrl.text.length}/400',
+                  style: const TextStyle(fontSize: 11, color: Color(0xFF9A9A9A))),
+            ]),
             const SizedBox(height: 8),
             TextField(
               controller: _descCtrl,
               maxLength: 400,
               maxLines: 3,
               onChanged: (_) => setState(() {}),
-              decoration: _dec(
-                  'Description', 'Condition, brand, how often worn...'),
+              decoration: _dec('Description', 'Condition, brand, how often worn...'),
             ),
 
             const SizedBox(height: 20),
 
-            // ── Size ──────────────────────────────────────
-            // แสดง size section เฉพาะเมื่อเลือก category แล้ว
-            AnimatedSwitcher(
-              duration: const Duration(milliseconds: 200),
-              child: _selectedCategory == null
-                  // ยังไม่เลือก category
-                  ? Container(
-                      key: const ValueKey('no-category'),
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(14),
-                      decoration: BoxDecoration(
-                        color: Colors.grey.shade50,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                            color: Colors.grey.shade200,
-                            style: BorderStyle.solid),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(Icons.info_outline,
-                              size: 16, color: Colors.grey.shade400),
-                          const SizedBox(width: 8),
-                          Text(
-                            'Select a category to see size options',
-                            style: TextStyle(
-                                fontSize: 13, color: Colors.grey.shade400),
-                          ),
-                        ],
-                      ),
-                    )
-                  // เลือก category แล้ว → แสดง size picker
-                  : Column(
-                      key: ValueKey(_selectedCategory),
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Text(
-                              _sizeLabelText,
-                              style: const TextStyle(
-                                  fontWeight: FontWeight.w600, fontSize: 14),
-                            ),
-                            const SizedBox(width: 6),
-                            // Badge บอกประเภทไซต์
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 7, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: Colors.grey.shade100,
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              child: Text(
-                                _getCategoryLabel(_selectedCategory),
-                                style: TextStyle(
-                                    fontSize: 10,
-                                    color: Colors.grey.shade500,
-                                    fontWeight: FontWeight.w500),
-                              ),
-                            ),
-                          ],
+            // ── Size (dynamic based on category) ──────────
+            if (_selectedCategory != null) ...[
+              const Text('Size', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+              const SizedBox(height: 8),
+
+              if (_isAccessory) ...[
+                // Free text for accessories (dimensions, weight, etc.)
+                TextField(
+                  controller: _sizeCtrl,
+                  decoration: _dec('Size / Dimensions',
+                      'e.g. 20cm × 10cm, 38mm, Adjustable...'),
+                ),
+                const SizedBox(height: 4),
+                const Text('Enter dimensions, diameter, or any relevant size info',
+                    style: TextStyle(fontSize: 11, color: Color(0xFF9A9A9A))),
+              ] else ...[
+                // Chip selector for clothing / shoes / hat
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: _availableSizes.map((s) {
+                    final isSelected = _selectedSize == s;
+                    return GestureDetector(
+                      onTap: () => setState(() => _selectedSize = s),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 120),
+                        width: _isShoes ? 52 : 54,
+                        height: 40,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: isSelected ? Colors.black : const Color(0xFFF5F5F5),
+                          borderRadius: BorderRadius.circular(8),
                         ),
-                        const SizedBox(height: 10),
-                        // แสดงเป็น chips แทน dropdown
-                        _buildSizeChips(sizes),
-                      ],
-                    ),
-            ),
-
-            const SizedBox(height: 20),
+                        child: Text(s,
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: isSelected ? Colors.white : const Color(0xFF555555),
+                            )),
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ],
+              const SizedBox(height: 20),
+            ] else ...[
+              // Placeholder before category selected
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF5F5F5),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Row(children: [
+                  Icon(Icons.info_outline, size: 16, color: Color(0xFF9A9A9A)),
+                  SizedBox(width: 8),
+                  Text('Select a category to choose size',
+                      style: TextStyle(fontSize: 13, color: Color(0xFF9A9A9A))),
+                ]),
+              ),
+              const SizedBox(height: 20),
+            ],
 
             // ── Price ────────────────────────────────────
-            const Text('Price (THB)',
-                style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+            const Text('Price (THB)', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
             const SizedBox(height: 8),
             TextField(
               controller: _priceCtrl,
@@ -523,64 +421,5 @@ class _AddProductPageState extends State<AddProductPage> {
         ),
       ),
     );
-  }
-
-  /// สร้าง size chips grid
-  Widget _buildSizeChips(List<String> sizes) {
-    // รองเท้ามีไซต์เยอะ → ใช้ Wrap แบบกระชับ
-    // อื่น ๆ → ใช้ Row / Wrap ปกติ
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      children: sizes.map((size) {
-        final isSelected = _selectedSize == size;
-        return GestureDetector(
-          onTap: () => setState(() => _selectedSize = size),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 150),
-            width: _chipWidth(sizes.length),
-            padding: const EdgeInsets.symmetric(vertical: 10),
-            decoration: BoxDecoration(
-              color: isSelected ? Colors.black : Colors.grey.shade100,
-              borderRadius: BorderRadius.circular(6),
-              border: Border.all(
-                color: isSelected ? Colors.black : Colors.grey.shade200,
-              ),
-            ),
-            alignment: Alignment.center,
-            child: Text(
-              size,
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: isSelected ? Colors.white : Colors.grey.shade700,
-              ),
-            ),
-          ),
-        );
-      }).toList(),
-    );
-  }
-
-  /// คำนวณความกว้าง chip ตามจำนวนไซต์
-  double _chipWidth(int count) {
-    final screenWidth = MediaQuery.of(context).size.width - 40; // padding 20*2
-    // รองเท้า 10 ไซต์ → 5 คอลัมน์
-    if (count >= 8) return (screenWidth - 8 * 4) / 5;
-    // pants 6 ไซต์ → 3 คอลัมน์
-    if (count >= 5) return (screenWidth - 8 * 2) / 3;
-    // hat / accessory ≤ 3 → auto
-    return (screenWidth - 8 * (count - 1)) / count;
-  }
-
-  String _getCategoryLabel(String? key) {
-    switch (key) {
-      case 'shirt':     return 'Clothing size';
-      case 'pants':     return 'Waist size';
-      case 'hat':       return 'Head size';
-      case 'shoes':     return 'EU shoe size';
-      case 'accessory': return 'One size';
-      default:          return '';
-    }
   }
 }
